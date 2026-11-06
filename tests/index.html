@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Model checks</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 880px; margin: 2rem auto; padding: 0 1rem; }
+  .ok { color: #0a7a0a } .bad { color: #c0262d; font-weight: 600 }
+  table { border-collapse: collapse; width: 100%; margin: .5rem 0 1.5rem }
+  td, th { border-bottom: 1px solid #ddd; padding: 2px 8px; text-align: left; font-variant-numeric: tabular-nums }
+  h2 { margin-top: 2rem }
+</style>
+</head>
+<body>
+<h1>Model checks against the paper's own numbers</h1>
+<p>Compares <code>assets/js/model.js</code> with the Python code and stored simulation results of the paper
+(<code>MC_util.py</code>, <code>fig3_…npz</code>, <code>fig5_…pool….npz</code>). Open this page through a local web server.</p>
+<div id="out">running…</div>
+<script src="../assets/js/model.js"></script>
+<script>
+(async function () {
+  const out = document.getElementById('out');
+  const ref = await (await fetch('ref.json')).json();
+  const rows = []; let fails = 0;
+  const log = (section, name, got, want, tol, ok) => { if (!ok) fails++; rows.push({ section, name, got, want, tol, ok }); };
+  const near = (a, b, tol) => Math.abs(a - b) <= tol;
+  const { manual, auto, buildPolicy, makeChain, priors } = ECC;
+  window.__rows = rows;
+
+  /* 1. exact action probabilities G_F, G_T against the paper's step() formulas */
+  for (const g of ref.G) {
+    const methods = g.kind === 'single' ? [g.K > 0 ? manual(g.K) : auto(g.e1, g.e2)] : [manual(g.KH), auto(g.e1, g.e2)];
+    const chain = makeChain(buildPolicy(methods), { r: g.r, p: g.p, q: 0.5, prior: priors.arcsine });
+    const o = new Float64Array(2); chain.G(g.ell, o);
+    const nm = `${g.kind} r=${g.r} p=${g.p} ell=${g.ell} ${g.kind === 'single' ? (g.K > 0 ? 'MH' : 'MA') : 'MH+MA'}`;
+    log('G', nm + ' G_F', o[0], g.GF, 1e-9, near(o[0], g.GF, 1e-9));
+    log('G', nm + ' G_T', o[1], g.GT, 1e-9, near(o[1], g.GT, 1e-9));
+  }
+
+  /* 2. regimes and policy structure */
+  const reg = (K, e1, e2) => ECC.regime(K, e1, e2);
+  log('regime', '(0.3, 0.3, 0.1)', reg(0.3, 0.3, 0.1), 'iii', 0, reg(0.3, 0.3, 0.1) === 'iii');
+  log('regime', '(0.3, 0.45, 0.15)', reg(0.3, 0.45, 0.15), 'ii', 0, reg(0.3, 0.45, 0.15) === 'ii');
+  log('regime', '(0.1, 0.3, 0.1)', reg(0.1, 0.3, 0.1), 'i', 0, reg(0.1, 0.3, 0.1) === 'i');
+  const pol2 = buildPolicy([manual(0.3), auto(0.45, 0.15)]);
+  const kinds = pol2.basins.map((b) => b.kind === 'C' ? pol2.methods[b.choice].id : b.kind).join('>');
+  log('policy', 'regime (ii) basins by rising b', kinds, 'D>A>M>L', 0, kinds === 'D>A>M>L');
+  const piStar = (0.45 - 0.3) / (0.45 - 0.15);
+  log('policy', 'pi* (indifference)', pol2.basins[1].piLo, piStar, 1e-9, near(pol2.basins[1].piLo, piStar, 1e-9));
+  const pol3 = buildPolicy([manual(0.3), auto(0.3, 0.1)]);
+  const k3 = pol3.basins.map((b) => b.kind === 'C' ? pol3.methods[b.choice].id : b.kind).join('>');
+  log('policy', 'regime (iii) basins by rising b', k3, 'D>A>L', 0, k3 === 'D>A>L');
+  const pol1 = buildPolicy([manual(0.1), auto(0.3, 0.1)]);   // K_H below e2/(1-e1+e2) = 0.125: automated never used
+  const k1 = pol1.basins.map((b) => b.kind === 'C' ? pol1.methods[b.choice].id : b.kind).join('>');
+  log('policy', 'regime (i) basins by rising b', k1, 'D>M>L', 0, k1 === 'D>M>L');
+
+  /* 3. Monte Carlo lambda against the paper's grid (regime iii, 2000 runs each, arcsine H) */
+  const f3 = ref.fig3, n = 2000;
+  const MH = manual(f3.KH), MA = auto(f3.e1, f3.e2);
+  for (const c of f3.cells) {
+    const art = { r: c.r, p: c.p, q: 0.5, prior: priors.arcsine };
+    const cH = makeChain(buildPolicy([MH]), art), cA = makeChain(buildPolicy([MA]), art);
+    for (const [v, key] of [[0, 'T'], [1, 'F']]) {
+      const res = ECC.runMany([cH, cA], v, n, 12345 + v, 300);
+      const lamH = ECC.correctOf(res[0], v) / n, lamA = ECC.correctOf(res[1], v) / n;
+      const tolH = 4 * Math.sqrt(2 * 0.25 / n), tolA = tolH;
+      const wH = c['lam' + key + '_H'], wA = c['lam' + key + '_A'];
+      // two independent estimates: allow 4 sigma of their difference (worst-case variance 1/4 each)
+      const sd = (a, b) => 4 * Math.sqrt(a * (1 - a) / n + b * (1 - b) / n) + 0.004;
+      log('lambda', `r=${c.r} p=${c.p} lam^${key} MH`, lamH, wH, sd(wH, wH), near(lamH, wH, sd(wH, wH)));
+      log('lambda', `r=${c.r} p=${c.p} lam^${key} MA`, lamA, wA, sd(wA, wA), near(lamA, wA, sd(wA, wA)));
+    }
+  }
+
+  /* 4. certified signs (Prop. 2) against the paper's simulated welfare changes */
+  for (const c of f3.cells) {
+    const cs = ECC.certified(f3.KH, f3.e1, f3.e2, c.r, c.p);
+    const dT = c.lamT_A - c.lamT_H, dF = c.lamF_A - c.lamF_H, dW = c.r * dT + (1 - c.r) * dF;
+    const chk = (sign, d) => sign == null ? null : sign === '+' ? d > -0.02 : sign === '-' ? d < 0.02 : sign === '0' ? Math.abs(d) < 0.02 : null;
+    for (const [nm, s, d] of [['dT', cs.dT, dT], ['dF', cs.dF, dF], ['dW', cs.dW, dW]]) {
+      const ok = chk(s, d);
+      if (ok !== null) log('certified', `r=${c.r} p=${c.p} ${nm}`, s + '  vs MC ' + d.toFixed(3), 'sign', 0.02, ok);
+    }
+  }
+
+  /* 5. Fig. 5: welfare averaged over r ~ U(0,1), stratified estimator (50 strata) */
+  const f5 = ref.fig5, m = 50, k = 60;
+  function Wbar(methodSets, alphaRow) {
+    const sums = methodSets.map(() => 0);
+    for (let i = 0; i < m; i++) {
+      const r = (i + 0.5) / m, art = { r, p: f5.p, q: 0.5, prior: priors.arcsine };
+      const chains = methodSets.map((ms) => makeChain(buildPolicy(ms), art));
+      const rT = ECC.runMany(chains, 0, k, 7 + i * 31, 1000), rF = ECC.runMany(chains, 1, k, 9 + i * 31, 1000);
+      chains.forEach((_, j) => { sums[j] += r * ECC.correctOf(rT[j], 0) / k + (1 - r) * ECC.correctOf(rF[j], 1) / k; });
+    }
+    return sums.map((s) => s / m);
+  }
+  const KH = f5.KH, MHs = manual(KH);
+  for (const row of f5.rows.filter((x) => [0.65, 0.7, 0.75, 0.8, 0.9].includes(x.alpha))) {
+    const { e1, e2 } = ECC.errorsAtAccuracy(row.alpha, 3);
+    const MAs = auto(e1, e2);
+    const [wH, wA, wHA] = Wbar([[MHs], [MAs], [MHs, MAs]]);
+    log('fig5', `alpha=${row.alpha} W{MH}`, wH, f5.W_H, 0.012, near(wH, f5.W_H, 0.012));
+    log('fig5', `alpha=${row.alpha} W{MA}`, wA, row.W_A, 0.012, near(wA, row.W_A, 0.012));
+    log('fig5', `alpha=${row.alpha} W{MH,MA}`, wHA, row.W_HA, 0.012, near(wHA, row.W_HA, 0.012));
+  }
+
+  /* report */
+  const bySec = {};
+  rows.forEach((r) => (bySec[r.section] = bySec[r.section] || []).push(r));
+  const f = (x) => typeof x === 'number' ? (Number.isInteger(x) ? x : x.toPrecision(5)) : String(x);
+  out.innerHTML = `<h2 class="${fails ? 'bad' : 'ok'}">${fails ? fails + ' check(s) FAILED' : 'All ' + rows.length + ' checks passed'}</h2>` +
+    Object.entries(bySec).map(([s, rs]) => `<h2>${s} — ${rs.filter((r) => r.ok).length}/${rs.length}</h2><table><tr><th>case</th><th>this port</th><th>paper</th><th>tol</th><th></th></tr>` +
+      rs.map((r) => `<tr><td>${r.name}</td><td>${f(r.got)}</td><td>${f(r.want)}</td><td>${f(r.tol)}</td><td class="${r.ok ? 'ok' : 'bad'}">${r.ok ? 'ok' : 'FAIL'}</td></tr>`).join('') + '</table>').join('');
+  window.__fails = fails; window.__done = true;
+})();
+</script>
+</body>
+</html>

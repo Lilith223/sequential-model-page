@@ -1,0 +1,234 @@
+<!--
+  Sections removed from index.html (kept for later; nothing in this file is loaded by the site).
+
+  The page now shows the title section (without the live example), "decision" and "map". To bring a section back:
+    1. paste it into <main> in index.html, in this order: hero live-example card, idea, model, simulate, decision, map,
+       accuracy, results, takeaways, cite (and the footer after </main>);
+    2. add its link to the <nav> in the top bar;
+    3. re-add the scripts it needs (all still in assets/js/), keeping this order:
+         hero teaser + simulate  ->  <script src="assets/js/cascade.js"></script>   (before decision.js; needed by main.js)
+         accuracy                ->  <script src="assets/js/sweep.js"></script>      (after welfare.js)
+         results (formulas)      ->  KaTeX:  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+                                             <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+                                             <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+    4. with the simulator back on the page, the map's "Replay this article in the simulator" button reappears by itself.
+-->
+<!-- ===================================================================== HERO: live-example card -->
+<!-- The hero text (title, authors, buttons, summary) is back in index.html, in a single column.
+     This card was its right-hand column. To restore it: wrap the hero text and this card in
+     <div class="wrap hero-grid"> ... </div> (two columns), and load assets/js/cascade.js before main.js.
+     Its "Try it yourself" link points at the Simulate section, so restore that section too. -->
+<div class="card pad" id="teaser" aria-label="Live example from the model">
+  <p class="ctl-title" style="margin-bottom:6px">Live example, simulated by the paper’s model</p>
+  <h2 style="font-size:22px;margin-bottom:6px" id="teaser-title">One article, one crowd, one extra tool</h2>
+  <p class="note" style="margin:0 0 14px" id="teaser-sub">The same 40 agents see the same article. Green = correct, red = wrong.</p>
+  <div id="teaser-body"></div>
+  <div class="toolbar" style="margin-top:14px">
+    <button type="button" class="btn sm" id="teaser-again">Draw another crowd</button>
+    <a class="btn sm" href="#simulate">Try it yourself ↓</a>
+  </div>
+</div>
+
+<!-- ===================================================================== IDEA -->
+<section class="section" id="idea">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">The question</p>
+      <h2>When does a free automated fact-checker help a community learn the truth?</h2>
+      <p class="lede">Social platforms increasingly build AI assistants into their interfaces, and many users already consult them to check claims. Such tools are quick and easy, but imperfect. When someone consults one privately, others see only what she <em>does</em>, not what the tool told her. So a mistaken check can spread through actions and shape what a whole community comes to believe.</p>
+    </div>
+    <div class="two-effects reveal">
+      <div class="card effect pos">
+        <span class="tag"><span aria-hidden="true">+</span> Broader checking</span>
+        <h3>The tool lets more agents check</h3>
+        <p>Manual verification takes time and effort, so only the most undecided agents bother. A free tool is worth using for a much wider range of beliefs. A truthful article that everyone would otherwise dismiss unchecked now gets verified by some, and can escape a wrong cascade.</p>
+      </div>
+      <div class="card effect neg">
+        <span class="tag"><span aria-hidden="true">−</span> Misleading errors</span>
+        <h3>The tool’s mistakes become other people’s evidence</h3>
+        <p>With perfect manual checking, a crowd that nobody tricks into the wrong action always reaches the right conclusion. Automated fact-checking errs, and its errors are passed on through the actions that follow, starting wrong cascades that manual checking would have avoided.</p>
+      </div>
+    </div>
+    <p class="takeaway reveal">The paper proves which effect wins, where, and by how much accuracy has to improve before the tool pays off. Everything below runs <b>live in your browser</b> using the same model and Monte Carlo procedure as the paper.</p>
+  </div>
+</section>
+
+<!-- ===================================================================== MODEL -->
+<section class="section" id="model">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">The model</p>
+      <h2>Agents arrive one by one, and only actions are public</h2>
+    </div>
+    <ol class="steps reveal">
+      <li class="card">
+        <h3>An article appears</h3>
+        <p>It has an observable <b>reliability</b> <i class="sym">r</i>: the prior probability that it is truthful. A truthful article carries the true state with probability <i class="sym">p</i> &gt; ½; a fake one is uninformative.</p>
+      </li>
+      <li class="card">
+        <h3>Agents arrive in turn</h3>
+        <p>Agent <i class="sym">t</i> has her own prior belief <i class="sym">b</i><sub>t</sub> (think ideology) and sees every earlier agent’s <b>action</b>: like or dislike. She does not see their private checks.</p>
+      </li>
+      <li class="card">
+        <h3>She may check first</h3>
+        <p>A check returns a private verdict: <em>verified</em> or <em>falsified</em>. She checks when the value of that information exceeds its cost.</p>
+      </li>
+      <li class="card">
+        <h3>She acts</h3>
+        <p>She likes what she believes true and dislikes what she believes fake, and earns 1 if she is right. <b>Welfare</b> is the probability that the crowd ends in a <em>correct cascade</em>.</p>
+      </li>
+    </ol>
+    <div class="method-pair reveal">
+      <div class="card method"><span class="sw m"></span><h3>Manual fact-checking</h3><p>Costs <i class="sym">K</i><sub>H</sub> in time and effort, but is error-free. An idealised, clean baseline.</p></div>
+      <div class="card method"><span class="sw a"></span><h3>Automated fact-checking</h3><p>Free, but wrong sometimes: it calls a truthful article fake with probability <i class="sym">e</i><sub>1</sub> and passes a fake one with probability <i class="sym">e</i><sub>2</sub>. Tools are typically better at spotting falsehoods, so <i class="sym">e</i><sub>1</sub> &gt; <i class="sym">e</i><sub>2</sub>.</p></div>
+    </div>
+    <details class="fold reveal">
+      <summary>What is an information cascade?</summary>
+      <div class="fold-body">
+        <p>Each agent combines her own information with the actions she has seen. After enough agents have acted the same way, an agent may rationally ignore her private information and simply follow the crowd. Once <em>everyone</em> would do so, no new information enters, and learning stops: a <em>cascade</em>. It may be <em>correct</em> (the crowd likes a truthful article or dislikes a fake one) or <em>wrong</em>. In this model the crowd’s evidence is tracked by the public likelihood ratio <i class="sym">ℓ</i><sub>t</sub>, and a cascade begins when it enters an absorbing “cascade zone”.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ===================================================================== DEMO A -->
+<section class="section" id="simulate">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Interactive 1</p>
+      <h2>Watch a cascade form, with and without the tool</h2>
+      <p class="lede">Both rows are the <em>same</em> crowd facing the <em>same</em> article; only the menu of fact-checkers differs. The line tracks the crowd’s belief that the article is fake. Once it enters a shaded zone, nobody checks any more and the crowd herds.</p>
+    </div>
+    <div id="sim-root"></div>
+    <p class="takeaway reveal"><b>What to look for.</b> With manual checking alone, an article of intermediate reliability always ends in a <em>correct</em> cascade. Automated fact-checking gets many more agents to check, but a single wrong verdict at the wrong moment can tip the crowd. Try <b>“Find me a backfire”</b>, then switch to the preset where the tool <b>rescues</b> a truthful article.</p>
+  </div>
+</section>
+
+<!-- ===================================================================== DEMO D -->
+<section class="section" id="accuracy">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Interactive 4</p>
+      <h2>How accurate must the tool be before it helps?</h2>
+      <p class="lede">Average welfare over articles of all reliabilities, as automated fact-checking improves. Below a threshold accuracy <i class="sym">τ</i><sub>0</sub>, offering the tool changes nothing or makes things worse, even though every agent who uses it gains privately.</p>
+    </div>
+    <div id="sweep-root"></div>
+  </div>
+</section>
+
+<!-- ===================================================================== RESULTS -->
+<section class="section" id="results">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Theory</p>
+      <h2>Results at a glance</h2>
+      <p class="lede">The simulations above are backed by closed-form characterisations. Here <i class="sym">q</i> = ½ and <i class="sym">H</i> is symmetric; the thresholds are those drawn in the map.</p>
+    </div>
+    <div class="results">
+      <article class="card result reveal">
+        <span class="label">Proposition 1</span>
+        <h3>Who checks</h3>
+        <p>An agent with posterior belief π that the article is fake checks if and only if π lies in an interval around ½. A method that is cheap and accurate enough widens it; if <span class="math">\(K \ge \tfrac12(1-e_1-e_2)\)</span>, nobody checks.</p>
+        <div class="formula">\[ \pi_- = \frac{e_1+K}{1+e_1-e_2},\qquad \pi_+ = \frac{1-e_1-K}{1-e_1+e_2} \]</div>
+      </article>
+      <article class="card result reveal">
+        <span class="label">Learning dynamics</span>
+        <h3>Cascades are absorbing</h3>
+        <p>The public likelihood ratio is a Markov process. Once it enters a cascade zone, everyone likes (or everyone dislikes) without checking and it freezes. Unless checking is free <em>and</em> perfect in both directions, learning is incomplete.</p>
+        <div class="formula">\[ \ell_L=\frac{q(1-r)(1-e_2-K)}{(1-p)\,r\,(e_1+K)},\quad \ell_D=\frac{q(1-r)(e_2+K)}{p\,r\,(1-e_1-K)} \]</div>
+      </article>
+      <article class="card result reveal">
+        <span class="label">Theorem 1 &amp; Corollary 1</span>
+        <h3>Learning outcomes, by reliability</h3>
+        <p>Very reliable articles are liked, very unreliable ones disliked. In between, a perfect checker still reaches the right cascade <em>almost surely</em> over a band of reliabilities, while an error-prone one only does so with positive probability. Thresholds of a method <span class="math">\(\mathcal M=(K,e_1,e_2)\)</span>:</p>
+        <div class="formula">\[ \begin{gathered}
+          r_D=\frac{q(e_2+K)}{p(1-e_1-K)+q(e_2+K)}\\[6pt]
+          r_L=\frac{q(1-e_2-K)}{(1-p)(e_1+K)+q(1-e_2-K)}\\[6pt]
+          \hat r_D=\frac{q(1-e_2-K)}{p(e_1+K)+q(1-e_2-K)}\\[6pt]
+          \hat r_L=\frac{q(e_2+K)}{(1-p)(1-e_1-K)+q(e_2+K)}
+        \end{gathered} \]</div>
+        <p class="note" style="margin:6px 0 0">Below <i class="sym">r</i><sub>D</sub> (above <i class="sym">r</i><sub>L</sub>) the crowd dislikes (likes) from the very first agent. The hatted thresholds apply to a checker that never errs, conditional on the article’s veracity.</p>
+      </article>
+      <article class="card result reveal">
+        <span class="label">Proposition 2 · main result</span>
+        <h3>When the tool strictly lowers welfare</h3>
+        <p>Let manual checking be sufficiently costly, so every agent who checks prefers the tool. Adding the tool strictly lowers welfare on the intermediate band <span class="math">\(\big(\hat r_L(\mathcal M_H),\hat r_D(\mathcal M_H)\big)\)</span> whenever truthful articles are not too informative:</p>
+        <div class="formula">\[ p<\bar p=\frac{1}{1+\big(\tfrac{K_H}{1-K_H}\big)^2} \]</div>
+        <p>On either side of the band the tool can help instead. Where the sign is certified, the map above marks it with + or −.</p>
+      </article>
+    </div>
+    <details class="fold reveal">
+      <summary>Formal statement of Proposition 2 (regime: manual checking costly enough that only the tool is used)</summary>
+      <div class="fold-body">
+        <p>Suppose <i class="sym">H</i> is symmetric, <i class="sym">q</i> = ½, and <span class="math">\(K_H > \frac{e_1}{1+e_1-e_2}\)</span>. Then:</p>
+        <ol>
+          <li><span class="math">\(\Delta W_T=\Delta W_F=0\)</span> for <span class="math">\(r\notin\big(r_D(\mathcal M_A),r_L(\mathcal M_A)\big)\)</span>.</li>
+          <li><span class="math">\(\Delta W_T&gt;0\)</span> on <span class="math">\(\big(r_D(\mathcal M_A),r_D(\mathcal M_H)\big)\)</span> and <span class="math">\(\Delta W_T&lt;0\)</span> on <span class="math">\(\big(\hat r_L(\mathcal M_H),r_L(\mathcal M_A)\big)\)</span>.</li>
+          <li><span class="math">\(\Delta W_F&lt;0\)</span> on <span class="math">\(\big(r_D(\mathcal M_A),\hat r_D(\mathcal M_H)\big)\)</span> and <span class="math">\(\Delta W_F&gt;0\)</span> on <span class="math">\(\big(r_L(\mathcal M_H),r_L(\mathcal M_A)\big)\)</span>.</li>
+          <li><span class="math">\(\Delta W&lt;0\)</span> on <span class="math">\(\big(\hat r_L(\mathcal M_H),\hat r_D(\mathcal M_H)\big)\)</span> if <span class="math">\(p&lt;\bar p\)</span>.</li>
+        </ol>
+        <p class="note">Here <span class="math">\(\Delta W=W(\{\mathcal M_H,\mathcal M_A\})-W(\{\mathcal M_H\})=r\,\Delta W_T+(1-r)\,\Delta W_F\)</span>, with <span class="math">\(\mathcal M_H=(K_H,0,0)\)</span> and <span class="math">\(\mathcal M_A=(0,e_1,e_2)\)</span>. For the regime in which both methods are used, see Proposition 3 in the paper; the proof will appear in the journal version.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ===================================================================== TAKEAWAYS -->
+<section class="section" id="takeaways">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Implications</p>
+      <h2>What this means for platforms</h2>
+    </div>
+    <div class="results">
+      <article class="card result reveal">
+        <h3>Don’t ship the tool too early</h3>
+        <p>Until its accuracy passes a threshold, introducing the tool changes nothing or lowers welfare. In the paper’s simulation, welfare first <em>falls</em> as the tool improves from “unused” to “used by everyone who checks”, and only then rises.</p>
+      </article>
+      <article class="card result reveal">
+        <h3>An informational externality</h3>
+        <p>Each agent picks her method for her own payoff. But her action also informs her successors, and a mistake of the tool can start a wrong cascade among them. Private gains and collective welfare come apart.</p>
+      </article>
+      <article class="card result reveal">
+        <h3>Even a good tool has losers</h3>
+        <p>Beyond the threshold, the tool raises welfare on average, yet it still lowers it for articles of intermediate reliability when truthful articles are not too informative.</p>
+      </article>
+      <article class="card result reveal">
+        <h3>Open questions</h3>
+        <p>How accurate must a tool be, analytically? Which operating point of its two error rates maximises welfare? With more than two information channels of different cost and accuracy, which should a platform offer?</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================== CITE -->
+<section class="section" id="cite">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Cite</p>
+      <h2>BibTeX</h2>
+    </div>
+    <!-- Cite the arXiv version only (arXiv:2611.08053, cs.AI, submitted 5 Nov 2026). -->
+    <div class="bib reveal">
+      <button class="btn sm" type="button" id="copy-bib">Copy</button>
+      <pre id="bibtex"><code>@misc{liu2026factchecking,
+  title         = {When Imperfect Automated Fact-Checking Backfires:
+                   Social Learning in the Presence of Misinformation},
+  author        = {Liu, Zixuan and Cao, Ming},
+  year          = {2026},
+  eprint        = {2611.08053},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2611.08053}
+}</code></pre>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="wrap cols">
+    <div>
+      <p><b>Contact.</b> <a href="mailto:zixuan.liu@rug.nl">zixuan.liu@rug.nl</a> · <a href="mailto:m.cao@rug.nl">m.cao@rug.nl</a></p>
+    </div>
+  </div>
+</footer>
