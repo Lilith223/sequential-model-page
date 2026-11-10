@@ -35,6 +35,8 @@
 
   /** Math symbol with optional subscript: sym('K', 'H') → <i class="sym">K</i><sub>H</sub> */
   const sym = (name, sub) => [h('i', { class: 'sym' }, name), sub ? h('sub', null, sub) : null];
+  /** Symbol with a hat, as in the paper's \hat r. The hat is drawn by CSS (a combining U+0302 lands in a fallback font and drifts off the letter). */
+  const hat = (name, sub) => [h('i', { class: 'sym hat' }, name), sub ? h('sub', null, sub) : null];
 
   /* ---------------------------------------------------------------- number formatting */
   const pct = (x, d = 0) => (100 * x).toFixed(d) + '%';
@@ -69,7 +71,11 @@
   /* ---------------------------------------------------------------- tooltip */
   let tipEl = null;
   function tipNode() {
-    if (!tipEl) { tipEl = h('div', { class: 'tip', role: 'tooltip' }); document.body.appendChild(tipEl); }
+    if (!tipEl) {
+      tipEl = h('div', { class: 'tip', role: 'tooltip' }); document.body.appendChild(tipEl);
+      // touch has no "leave": a tip stays until the next tap somewhere else
+      document.addEventListener('pointerdown', (ev) => { if (ev.pointerType !== 'mouse' && !(ev.target.closest && ev.target.closest('.agent, .belief'))) Tip.hide(); }, true);
+    }
     return tipEl;
   }
   /**
@@ -105,7 +111,8 @@
     return {
       show(spec) {
         clear(el);
-        el.appendChild(h('div', { class: 'ro-t' }, spec.title + (spec.note ? ' · ' + spec.note : '')));
+        const note = spec.dockNote || spec.note;
+        el.appendChild(h('div', { class: 'ro-t' }, spec.title + (note ? ' · ' + note : '')));
         const items = h('div', { class: 'ro-r' });
         (spec.rows || []).forEach((r) => items.appendChild(h('span', { class: 'ro-i' },
           r.color ? h('span', { class: r.line ? 'ln' : 'key-dot', style: r.line ? { borderColor: r.color } : { background: r.color } }) : null,
@@ -184,7 +191,7 @@
   const zOfEll = (ell) => -Math.log10(ell);
 
   root.UI = {
-    h, s, $, $$, clear, sym, pct, f2, f3, signed, clamp, lerp, cssVar, isDark, onTheme, setTheme, initTheme,
+    h, s, $, $$, clear, sym, hat, pct, f2, f3, signed, clamp, lerp, cssVar, isDark, onTheme, setTheme, initTheme,
     Tip, readout, isPhone, slider, segmented, onResize, onceVisible, rafThrottle, debounce, LOGIT_TICKS, zOfEll, SVG_NS,
   };
 })(window);

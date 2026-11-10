@@ -1,17 +1,17 @@
 <!--
   Sections removed from index.html (kept for later; nothing in this file is loaded by the site).
 
-  The page now shows the title section (without the live example), "decision" and "map". To bring a section back:
+  The page now shows the title section (without the live example), "simulate" (one fact-checker: decision rule next to
+  a single crowd) and "map" (the explorer: decision rule next to the welfare map). To bring a section back:
     1. paste it into <main> in index.html, in this order: hero live-example card, idea, model, simulate, decision, map,
        accuracy, results, takeaways, cite (and the footer after </main>);
     2. add its link to the <nav> in the top bar;
     3. re-add the scripts it needs (all still in assets/js/), keeping this order:
-         hero teaser + simulate  ->  <script src="assets/js/cascade.js"></script>   (before decision.js; needed by main.js)
+         hero teaser             ->  nothing to add: cascade.js is already loaded (it exports Sim.AgentStrip and Sim.agentTipSpec)
          accuracy                ->  <script src="assets/js/sweep.js"></script>      (after welfare.js)
          results (formulas)      ->  KaTeX:  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
                                              <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
                                              <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
-    4. with the simulator back on the page, the map's "Replay this article in the simulator" button reappears by itself.
 -->
 <!-- ===================================================================== HERO: live-example card -->
 <!-- The hero text (title, authors, buttons, summary) is back in index.html, in a single column.
@@ -88,19 +88,6 @@
         <p>Each agent combines her own information with the actions she has seen. After enough agents have acted the same way, an agent may rationally ignore her private information and simply follow the crowd. Once <em>everyone</em> would do so, no new information enters, and learning stops: a <em>cascade</em>. It may be <em>correct</em> (the crowd likes a truthful article or dislikes a fake one) or <em>wrong</em>. In this model the crowd’s evidence is tracked by the public likelihood ratio <i class="sym">ℓ</i><sub>t</sub>, and a cascade begins when it enters an absorbing “cascade zone”.</p>
       </div>
     </details>
-  </div>
-</section>
-
-<!-- ===================================================================== DEMO A -->
-<section class="section" id="simulate">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <p class="kicker">Interactive 1</p>
-      <h2>Watch a cascade form, with and without the tool</h2>
-      <p class="lede">Both rows are the <em>same</em> crowd facing the <em>same</em> article; only the menu of fact-checkers differs. The line tracks the crowd’s belief that the article is fake. Once it enters a shaded zone, nobody checks any more and the crowd herds.</p>
-    </div>
-    <div id="sim-root"></div>
-    <p class="takeaway reveal"><b>What to look for.</b> With manual checking alone, an article of intermediate reliability always ends in a <em>correct</em> cascade. Automated fact-checking gets many more agents to check, but a single wrong verdict at the wrong moment can tip the crowd. Try <b>“Find me a backfire”</b>, then switch to the preset where the tool <b>rescues</b> a truthful article.</p>
   </div>
 </section>
 
@@ -232,3 +219,37 @@
     </div>
   </div>
 </footer>
+
+<!-- ===================================================================== DECISION (the former "Interactive 1")
+     Two charts with their own sliders: (1) what one agent does, (2) who is left to check as the crowd's belief moves.
+     Chart 1 now lives on in the explorer (assets/js/rule.js, driven by the map's sliders); chart 2 and the article
+     sliders (r, p) exist only here. To restore: paste this section before #map in index.html, add a nav link,
+     move archive/decision.js back to assets/js/ and load it before welfare.js. -->
+<section class="section" id="decision">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Interactive 1</p>
+      <h2>Why would anyone check, and why do cascades stop checking?</h2>
+      <p class="lede">An agent checks when the expected gain beats the cost. Those who are already nearly sure gain nothing, so the most ambivalent agents check. As the crowd becomes convinced, the group of checkers shrinks to nothing: that is what a cascade is.</p>
+    </div>
+    <div id="decision-root"></div>
+  </div>
+</section>
+
+<!-- ===================================================================== SIMULATE, two crowds (the former "Interactive 1")
+     The same 60 agents face the same article twice: with manual checking only, and with an automated method on offer
+     as well; plus the 4,000-repeat probabilities and a "Find me a backfire" search. Replaced by the one-method version
+     (assets/js/cascade.js: decision rule next to a single crowd). To restore: put archive/cascade.js over
+     assets/js/cascade.js, and this section in place of the current #simulate section. The explorer's
+     "Replay the selected article in the simulator" button belonged with it (see git history, commit 5a98098). -->
+<section class="section" id="simulate">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Interactive 1</p>
+      <h2>Watch a cascade form, with and without the tool</h2>
+      <p class="lede">Both rows are the <em>same</em> crowd facing the <em>same</em> article; only the menu of fact-checkers differs. The line tracks the crowd’s belief that the article is fake. Once it enters a shaded zone, nobody checks any more and the crowd herds.</p>
+    </div>
+    <div id="sim-root"></div>
+    <p class="takeaway reveal"><b>What to look for.</b> With manual checking alone, an article of intermediate reliability always ends in a <em>correct</em> cascade. Automated fact-checking gets many more agents to check, but a single wrong verdict at the wrong moment can tip the crowd. Try <b>“Find me a backfire”</b>, then switch to the preset where the tool <b>rescues</b> a truthful article.</p>
+  </div>
+</section>

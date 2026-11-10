@@ -98,7 +98,9 @@
         if (val > best + 1e-12) { best = val; choice = k; }
       });
       const last = segs[segs.length - 1];
-      if (last && last.choice === choice) last.hi = xs[i + 1];
+      // adjacent pieces with the same choice merge, except "no check" across pi = 1/2: there she switches from like to dislike
+      // (only matters when no method is worth its cost, otherwise a check basin lies between the two)
+      if (last && last.choice === choice && !(choice === -1 && Math.abs(xs[i] - 0.5) < 1e-9)) last.hi = xs[i + 1];
       else segs.push({ lo: xs[i], hi: xs[i + 1], choice });
     }
     const basins = segs.slice().reverse().map((s) => ({ choice: s.choice, piLo: s.lo, piHi: s.hi }));
@@ -183,11 +185,20 @@
 
   const _g = new Float64Array(2);
   /**
+   * Is the public belief inside a cascade set? gF, gT = chance the next agent dislikes if the article is fake / truthful.
+   * Inside the Like set (public ratio above ell_L) every agent likes whatever her own belief, so both are ~0;
+   * inside the Dislike set (below ell_D) both are ~1. Returns 1 (Like set), 0 (Dislike set) or -1 (neither).
+   * This is the cascade of the explanation. The paper's Monte Carlo stops earlier, once the less likely action is
+   * improbable given the TRUE state alone (`strict` off in runChain); the outcome is the same, but the crowd may
+   * still be learning at that point (a checker could still reveal the article).
+   */
+  const cascadeOf = (gF, gT, eps) => (gF < eps && gT < eps ? 1 : gF > 1 - eps && gT > 1 - eps ? 0 : -1);
+  /**
    * One run of the chain given the article's veracity v (0 = truthful, 1 = fake).
    * Returns 1 for a Like cascade, 0 for a Dislike cascade, -1 if none within tMax.
-   * (Identical in law to _simulate in MC_util.py.)
+   * (Identical in law to _simulate in MC_util.py, unless `strict`: see cascadeOf.)
    */
-  function runChain(chain, v, seed, tMax, eps) {
+  function runChain(chain, v, seed, tMax, eps, strict) {
     tMax = tMax || T_MAX; eps = eps || EPS;
     const G = chain.G, g = _g;
     const next = rng(seed);
@@ -195,8 +206,13 @@
     for (let t = 1; t <= tMax; t++) {
       G(ell, g);
       const gF = g[0], gT = g[1], gv = v === 0 ? gT : gF;
-      if (gv < eps) return 1;
-      if (gv > 1 - eps) return 0;
+      if (strict) {      // the public belief has entered a cascade set: whatever the article, the next agent's action is (all but) fixed
+        const c = cascadeOf(gF, gT, eps);
+        if (c >= 0) return c;
+      } else {
+        if (gv < eps) return 1;
+        if (gv > 1 - eps) return 0;
+      }
       if (next() < gv) ell *= gT / gF; else ell *= (1 - gT) / (1 - gF);
     }
     return -1;
@@ -238,7 +254,7 @@
       const policy = chain.policy, methods = policy.methods, steps = [];
       for (let t = 0; t < nAgents; t++) {
         chain.G(ell, g);
-        const gF = g[0], gT = g[1], gv = v === 0 ? gT : gF;
+        const gF = g[0], gT = g[1];
         const masses = chain.masses(ell);
         const { b, w } = agents[t];
         const cuts = chain.bCuts(ell);
@@ -253,8 +269,7 @@
           verdict = saysFake ? 'F' : 'T';
           action = saysFake ? 'D' : 'L';
         }
-        const inCascade = gv < eps || gv > 1 - eps;
-        if (inCascade && cascadeAt < 0) cascadeAt = t;
+        if (cascadeAt < 0 && cascadeOf(gF, gT, eps) >= 0) cascadeAt = t;      // the public belief is inside a cascade set when this agent arrives
         const step = {
           t: t + 1, b, ell, rho: 1 / (1 + ell), pi: chain.posterior(b, ell), masses,
           basin: k, kind: basin.kind, method: method ? method.id : null, verdict, action,
@@ -286,6 +301,8 @@
   };
   /** p-bar: below it the two negative bands of Proposition 2 overlap. */
   const pBar = (KH) => 1 / (1 + Math.pow(KH / (1 - KH), 2));
+  /** p_kappa (both methods used): below it the fake-article change is certified only as <= 0 and r~ = r*; above it strictly negative and r~ = rhat_D(H). */
+  const pKappa = (KH, e1, e2) => { const piStar = (e1 - KH) / (e1 - e2), kappa = (1 - piStar) / piStar; return 1 / (1 + (KH / (1 - KH)) * kappa); };
 
   /** Which of the paper's three regimes: (i) automated unused, (ii) both used, (iii) automated preferred. */
   function regime(KH, e1, e2) {
@@ -319,12 +336,13 @@
     // regime (ii): both methods used
     const piStar = (e1 - KH) / (e1 - e2), kappa = (1 - piStar) / piStar;
     const rStar = (q * kappa) / (q * kappa + (1 - p));
-    const pKappa = 1 / (1 + (KH / (1 - KH)) * kappa);
+    const pK = pKappa(KH, e1, e2);
     const rTilde = Math.min(rStar, rhDH);
     if (!inI(r, rDA, rStar)) return { dT: '0', dF: '0', dW: '0', regime: reg };
     if (inI(r, rDA, rDH)) out.dT = '+';
     if (inI(r, rhLH, rStar)) out.dT = '-';
-    if (inI(r, rDA, rTilde)) out.dF = p > pKappa ? '-' : '≤0';
+    if (inI(r, rDA, rTilde)) out.dF = p > pK ? '-' : '≤0';
+    // strict even where dF is only weak: dT < 0 strictly on (rhat_L(H), r*) and dF <= 0, so dW <= r dT < 0 (Prop. 3d)
     if (p < pBar(KH) && inI(r, rhLH, rTilde)) out.dW = '-';
     return out;
   }
@@ -337,7 +355,7 @@
 
   root.ECC = {
     priors, manual, auto, V, Vhat, cutoffs, buildPolicy, makeChain, rng, hash32,
-    runChain, runMany, correctOf, simulateAgents, thr, pBar, regime, certified, errorsAtAccuracy,
+    runChain, runMany, correctOf, simulateAgents, cascadeOf, thr, pBar, pKappa, regime, certified, errorsAtAccuracy,
     T_MAX, EPS,
   };
 })(typeof self !== 'undefined' ? self : this);

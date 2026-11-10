@@ -3,6 +3,7 @@
  * and a newer job cancels an older one, so dragging a slider stays smooth.
  *   heat : lambda^T and lambda^F on an (r, p) grid, for {M_H} and {M_H, M_A}   (Demo 3)
  *   sweep: welfare averaged over r ~ U(0,1) along a path of accuracies of the automated method       (Demo 4)
+ *   cascade: where one fact-checker's crowds end (Like, Dislike, none), for a truthful and for a fake article
  */
 importScripts('model.js');
 
@@ -14,6 +15,7 @@ self.onmessage = (ev) => {
   currentJob = msg.id;
   if (msg.type === 'heat') runHeat(msg);
   else if (msg.type === 'sweep') runSweep(msg);
+  else if (msg.type === 'cascade') runCascade(msg);
 };
 
 async function runHeat(m) {
@@ -85,5 +87,29 @@ async function runSweep(m) {
     }
     self.postMessage({ type: 'sweep', id, pass, last: pass === passes.length - 1, runs: total * S * 2, W, SD }, [W.buffer, SD.buffer]);
     await tick(); if (currentJob !== id) return;
+  }
+}
+
+/** Crowds of one fact-checker {K, e1, e2} on an article (r, p): counts [like, dislike, none] for a truthful (0) and a fake (1)
+ *  article, and how many crowds had herded within `within` agents. Posted in batches, so a slider drag stays smooth. */
+async function runCascade(m) {
+  const { id, K, e1, e2, r, p, n, within } = m;
+  const prior = ECC.priors[m.prior] || ECC.priors.arcsine;
+  const chain = ECC.makeChain(ECC.buildPolicy([{ id: 'M', name: 'Fact-checking', K, e1, e2 }]), { r, p, q: 0.5, prior });
+  const cnt = [[0, 0, 0], [0, 0, 0]], early = [0, 0];
+  const batches = 5, per = Math.ceil(n / batches);
+  for (let b = 0; b < batches; b++) {
+    for (let v = 0; v < 2; v++) {
+      for (let i = 0; i < per; i++) {
+        const seed = ECC.hash32((20261106 + b * 1000003 + Math.imul(i + 1, 0x9e3779b1)) | 0) ^ (v ? 0x5bd1e995 : 0);
+        // strict: a cascade starts when the public belief is inside a cascade set, as in the simulation above
+        let res = ECC.runChain(chain, v, seed, within, undefined, true);          // the same path, looked at after `within` agents
+        if (res !== -1) early[v]++;
+        else res = ECC.runChain(chain, v, seed, ECC.T_MAX, undefined, true);
+        cnt[v][res === 1 ? 0 : res === 0 ? 1 : 2]++;
+      }
+      await tick(); if (currentJob !== id) return;
+    }
+    self.postMessage({ type: 'cascade', id, last: b === batches - 1, n: (b + 1) * per, r, cnt, early });
   }
 }
