@@ -2,7 +2,7 @@
  * cascade.js — the first interactive. ONE fact-checking method (cost K, false-alarm rate e1, miss rate e2) and a
  * crowd of agents who arrive one at a time and see only what the earlier agents did.
  *   left : the posterior decision rule (rule.js): what an agent with a given belief does
- *   right: the simulation: the agents in order of arrival, who is left to check, and the crowd's belief,
+ *   right: the simulation: the agents in order of arrival, who is left to check, and the public belief,
  *          which ends in a cascade once nobody checks any more.
  * One set of sliders drives both. (The version with two crowds, with and without a second method, is in archive/cascade.js.)
  */
@@ -21,7 +21,7 @@
     const act = step.action === 'L' ? 'likes' : 'dislikes';
     const rows = [
       { label: 'Leans toward the message (b)', value: step.b.toFixed(2) },
-      crowdTruthful ? { label: 'Crowd’s belief: truthful', value: pct(1 - step.rho) } : { label: 'Crowd’s belief: fake', value: pct(step.rho) },
+      crowdTruthful ? { label: 'Public belief: truthful', value: pct(1 - step.rho) } : { label: 'Public belief: fake', value: pct(step.rho) },
       { label: crowdTruthful ? 'Her own belief π (that it is fake)' : 'Her own belief: fake', value: pct(step.pi) },
     ];
     if (step.kind === 'C') {
@@ -149,7 +149,7 @@
     const y = (z) => m.t + ((ZMAX - clamp(z, -ZMAX, ZMAX)) / (2 * ZMAX)) * ph;
     clear(svg);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    // The axis is the crowd's belief that the article is TRUTHFUL, as log10 odds = log10 of the public likelihood ratio,
+    // The axis is the public belief that the article is TRUTHFUL, as log10 odds = log10 of the public likelihood ratio,
     // so a Like cascade is at the top and a Dislike cascade at the bottom: above zLt everybody likes, below zDt everybody dislikes.
     const zt = (ell) => Math.log10(ell);
     const zDt = zt(sim.ellD), zLt = zt(sim.ellL);
@@ -189,7 +189,7 @@
       cross.setAttribute('x1', x(t)); cross.setAttribute('x2', x(t)); cross.setAttribute('opacity', 0.5);
       const z = t === 0 ? 0 : zt(sim.steps[t - 1].ellAfter);
       const rho = 1 / (1 + Math.pow(10, -z));        // belief that the article is truthful
-      const rows = [{ label: 'Crowd believes it is truthful', value: pct(rho, rho > 0.99 || rho < 0.01 ? 1 : 0), color, line: true }];
+      const rows = [{ label: 'Public belief: truthful', value: pct(rho, rho > 0.99 || rho < 0.01 ? 1 : 0), color, line: true }];
       if (t > 0) rows.push({ label: 'Last agent', value: sim.steps[t - 1].action === 'L' ? 'liked' : 'disliked' });
       Tip.show(ev.clientX, ev.clientY, { title: t === 0 ? 'Before any agent' : 'After agent ' + t, rows });
     });
@@ -379,7 +379,7 @@
       h('div', { class: 'sim-status' }, w.badge),
       stripEl,
       h('div', { class: 'who' }, h('div', { class: 'who-label' }, w.whoLabel, w.whoNote), w.whoBar),
-      h('div', { class: 'chart-sub sim-belief-cap' }, h('span', null, 'Crowd’s belief', h('span', { class: 'hide-phone' }, ' that the article is truthful')), w.badge2),
+      h('div', { class: 'chart-sub sim-belief-cap' }, h('span', null, 'Public belief', h('span', { class: 'hide-phone' }, ' that the article is truthful')), w.badge2),
       w.beliefBox);
 
     // on phones the two figures are tabs in one docked panel, with the controls scrolling underneath it

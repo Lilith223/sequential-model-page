@@ -59,13 +59,10 @@
     try { localStorage.setItem('theme', t); } catch (e) { /* private mode */ }
     themeListeners.forEach((fn) => fn(t));
   }
+  /** The page is light only: the dark theme is kept in style.css but switched off (no toggle, no "follow the system"). */
   function initTheme() {
-    let saved = null;
-    try { saved = localStorage.getItem('theme'); } catch (e) { /* ignore */ }
-    if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-      if (!document.documentElement.getAttribute('data-theme')) themeListeners.forEach((fn) => fn());
-    });
+    document.documentElement.setAttribute('data-theme', 'light');
+    try { localStorage.removeItem('theme'); } catch (e) { /* a choice saved when the toggle existed */ }
   }
 
   /* ---------------------------------------------------------------- tooltip */
@@ -185,7 +182,7 @@
   }
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  /* ---------------------------------------------------------------- shared logit scale for the crowd's belief */
+  /* ---------------------------------------------------------------- shared logit scale for the public belief */
   // z = log10 odds that the article is fake = -log10(ell). Shown as percentages on the axis.
   const LOGIT_TICKS = [[-2, '1%'], [-1, '10%'], [0, '50%'], [1, '90%'], [2, '99%']];
   const zOfEll = (ell) => -Math.log10(ell);

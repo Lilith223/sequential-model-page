@@ -1,5 +1,5 @@
 /*
- * main.js — page chrome: theme toggle, scroll reveal, section highlighting, maths, BibTeX copy,
+ * main.js — page chrome: light theme, scroll reveal, section highlighting, maths, BibTeX copy,
  * and the live teaser in the hero (a real simulation, re-drawn on demand).
  */
 (function () {
@@ -8,8 +8,7 @@
 
   /* ---------------------------------------------------------------- theme */
   function initThemeToggle() {
-    UI.initTheme();
-    $('#theme-toggle').addEventListener('click', () => UI.setTheme(UI.isDark() ? 'light' : 'dark'));
+    UI.initTheme();      // light only: there is no toggle any more
   }
 
   /* ---------------------------------------------------------------- reveal on scroll + nav highlight */
