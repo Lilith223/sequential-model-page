@@ -263,7 +263,7 @@
   function ensureWorker() {
     if (worker) return true;
     try {
-      worker = new Worker('assets/js/worker.js');
+      worker = new Worker('assets/js/worker.js?v=' + (window.ASSET_V || ''));
       worker.onmessage = (ev) => {
         const m = ev.data;
         if (m.type !== 'heat' || m.id !== jobId) return;

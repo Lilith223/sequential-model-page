@@ -5,7 +5,7 @@
  *   sweep: welfare averaged over r ~ U(0,1) along a path of accuracies of the automated method       (Demo 4)
  *   cascade: where one fact-checker's crowds end (Like, Dislike, none), for a truthful and for a fake article
  */
-importScripts('model.js');
+importScripts('model.js' + self.location.search);      // the worker's own ?v= carries over, so it never pairs with an older cached model.js
 
 let currentJob = 0;
 const tick = () => new Promise((res) => setTimeout(res, 0));

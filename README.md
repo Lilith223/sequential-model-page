@@ -39,6 +39,8 @@ The page is meant to be opened from a QR code on a phone. Below 720 px wide the 
 2. In the repository go to **Settings → Pages**, choose **Deploy from a branch**, branch `main`, folder `/ (root)`, and save.
 3. The page is served at `https://<user>.github.io/sequential-model-page/` after a minute or so. (`.nojekyll` is included so files are served as they are. Note that `archive/` is served too, as plain unlinked files.)
 
+**Before each publish, bump the version number** (now `20261110b`) in `index.html`: the `window.ASSET_V` line and the `?v=` on the stylesheet and the six scripts, all the same. Browsers, Safari above all, keep scripts for a while; without the number a phone can pair the new page with an old script. That happened once: an old `main.js` looked for the removed dark-mode button, stopped, and left the section titles and the "What to look for" boxes invisible. The page now also reveals anything still hidden after 3.5 s, and each start-up step in `main.js` runs on its own.
+
 ## Preview locally
 
 The Monte Carlo runs in a Web Worker, which browsers only start over http(s), so serve the folder rather than opening `index.html` directly:

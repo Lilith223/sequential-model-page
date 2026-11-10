@@ -146,13 +146,9 @@
 
   /* ---------------------------------------------------------------- boot */
   function boot() {
-    initThemeToggle();
-    initReveal();
-    initSpy();
-    initAnchors();
-    initBib();
-    initTeaser();
-    if (!renderMath()) window.addEventListener('load', renderMath);
+    // each step on its own: one that fails must not stop the others (a crash before initReveal left the titles invisible)
+    [initThemeToggle, initReveal, initSpy, initAnchors, initBib, initTeaser, () => { if (!renderMath()) window.addEventListener('load', renderMath); }]
+      .forEach((step) => { try { step(); } catch (e) { console.error(e); } });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

@@ -228,7 +228,7 @@
     clearTimeout(popTimer);
     popTimer = setTimeout(() => {
       try {
-        if (!popWorker) { popWorker = new Worker('assets/js/worker.js'); popWorker.onmessage = onPop; popWorker.onerror = () => { pop = { error: true }; renderPop(); }; }
+        if (!popWorker) { popWorker = new Worker('assets/js/worker.js?v=' + (window.ASSET_V || '')); popWorker.onmessage = onPop; popWorker.onerror = () => { pop = { error: true }; renderPop(); }; }
       } catch (e) { pop = { error: true }; renderPop(); return; }
       popJob++;
       pop = Object.assign({}, pop, { busy: true }); renderPop();
