@@ -331,8 +331,8 @@
 
     // the two figures. On phones they are tabs in one docked panel: the controls scroll underneath it.
     const tabs = segmented({
-      ariaLabel: 'Choose the figure', value: 'rule',
-      options: [{ value: 'rule', label: 'Decision rule' }, { value: 'map', label: 'Welfare map' }],
+      ariaLabel: 'Choose the figure', value: 'map',      // phones show the welfare map first; the decision rule is the second tab (the tabs are hidden on wider screens, where the rule is on the left)
+      options: [{ value: 'map', label: 'Welfare map' }, { value: 'rule', label: 'Decision rule' }],
       onChange: (v) => { dockEl.setAttribute('data-pane', v); if (v === 'rule') rule.draw(); else { drawOverlay(); paintHeat(); } },
     });
     const mapPane = h('div', { class: 'pane pane-map' },
@@ -341,7 +341,7 @@
       h('p', { class: 'chart-sub' }, 'ΔW = W({manual, automated}) − W({manual}): the change in the probability of a correct cascade, by article'),
       h('div', { class: 'pane-ctl' }, h('span', { class: 'view-cap' }, 'Colour shows'), ctl.view.el),
       frame, colorbar, h('div', { class: 'colorbar-labels' }, cbLabels), mini.el, progress);
-    dockEl = h('div', { class: 'dock', 'data-pane': 'rule' },
+    dockEl = h('div', { class: 'dock', 'data-pane': 'map' },
       h('div', { class: 'dock-tabs phone-only' }, tabs.el),
       h('div', { class: 'two-col' }, rule.el, mapPane));
 

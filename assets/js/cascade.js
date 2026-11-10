@@ -384,11 +384,11 @@
 
     // on phones the two figures are tabs in one docked panel, with the controls scrolling underneath it
     const tabs = segmented({
-      ariaLabel: 'Choose the figure', value: 'rule',
-      options: [{ value: 'rule', label: 'Decision rule' }, { value: 'sim', label: 'Simulation' }],
+      ariaLabel: 'Choose the figure', value: 'sim',      // phones show the simulation first; the decision rule is the second tab (the tabs are hidden on wider screens, where the rule is on the left)
+      options: [{ value: 'sim', label: 'Simulation' }, { value: 'rule', label: 'Decision rule' }],
       onChange: (v) => { dockEl.setAttribute('data-pane', v); if (v === 'rule') rule.draw(); else if (sim) drawBelief(); },
     });
-    dockEl = h('div', { class: 'dock', 'data-pane': 'rule' },
+    dockEl = h('div', { class: 'dock', 'data-pane': 'sim' },
       h('div', { class: 'dock-tabs phone-only' }, tabs.el),
       h('div', { class: 'two-col' }, rule.el, simPane));
 

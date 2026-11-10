@@ -75,7 +75,7 @@
     <div class="section-head reveal">
       <p class="kicker">Interactive 1</p>
       <h2>Watch a cascade form</h2>
-      <p class="lede">Agents arrive one at a time and see only what the earlier agents did. Each can pay a cost to check the article with a fact-checker, which is right most of the time but not always. <b>Left:</b> the rule an agent follows, given her belief that the article is fake. <b>Right:</b> a crowd following that rule. The line tracks the crowd’s belief that the article is truthful; once it enters a shaded zone, nobody checks any more and the crowd herds.</p>
+      <p class="lede">Agents arrive one at a time and see only what the earlier agents did. Each can pay a cost to check the article with a fact-checker, which is right most of the time but not always. The <b>decision rule</b> is what an agent does, given her belief that the article is fake; the <b>simulation</b> is a crowd following that rule. The line tracks the crowd’s belief that the article is truthful; once it enters a shaded zone, nobody checks any more and the crowd herds.</p>
     </div>
     <div id="sim-root"></div>
     <p class="takeaway reveal"><b>What to look for.</b> Only agents who are unsure check: someone who is nearly sure gains nothing from a check. Early on many agents check and the crowd’s belief moves fast; once it is so strong that no one’s own belief falls in the checking band any more, nobody checks and the crowd herds. Try <b>“Too costly to use”</b>: nobody checks, so nothing is learned and no cascade forms. Then try <b>“Free but error-prone”</b>, where everyone in the middle checks but some checks are wrong, and the article presets, such as a reliable article that is fake. The numbers at the bottom say how often crowds end in a right or a wrong cascade.</p>
@@ -88,7 +88,7 @@
     <div class="section-head reveal">
       <p class="kicker">Interactive 2</p>
       <h2>Where does the tool backfire?</h2>
-      <p class="lede">Change the cost of manual checking or the accuracy of the automated tool and watch both levels at once. <b>Left:</b> what a single agent does at each belief: she checks when the expected gain beats the cost. <b>Right:</b> what that does to a whole community. Each cell is an article, described by its reliability <i class="sym">r</i> and informativeness <i class="sym">p</i>, coloured by how the probability of a correct cascade changes when automated fact-checking is added next to manual checking. Lines are the closed-form thresholds proved in the paper; the labelled regions are where the paper <em>certifies</em> the sign.</p>
+      <p class="lede">Change the cost of manual checking or the accuracy of the automated tool and watch both levels at once. The <b>decision rule</b> shows what a single agent does at each belief: she checks when the expected gain beats the cost. The <b>welfare map</b> shows what that does to a whole community. Each cell is an article, described by its reliability <i class="sym">r</i> and informativeness <i class="sym">p</i>, coloured by how the probability of a correct cascade changes when automated fact-checking is added next to manual checking. Lines are the closed-form thresholds proved in the paper; the labelled regions are where the paper <em>certifies</em> the sign.</p>
     </div>
     <div id="map-root"></div>
   </div>

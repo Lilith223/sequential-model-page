@@ -31,7 +31,7 @@ Symbols such as `r`, `K`, `p_κ` are set in the real italic of Source Serif 4 (l
 
 ## On phones
 
-The page is meant to be opened from a QR code on a phone. Below 720 px wide the two figures of each interactive become tabs ("Decision rule" and "Simulation", or "Welfare map") in one panel docked at the top of the screen while the sliders scroll underneath, so a slider can be moved while its effect stays in view. Touch replaces hover: tap or drag on either figure, and a readout under it keeps the last reading (on the map, the three boxes under it also choose what the map colours). The docking is switched off in landscape (under 540 px tall). All of this is in the `@media (max-width: 720px)` block at the end of `assets/css/style.css`.
+The page is meant to be opened from a QR code on a phone. Below 720 px wide the two figures of each interactive become tabs in one panel docked at the top of the screen, with the simulation (or the welfare map) first and shown by default and "Decision rule" as the second tab (on wider screens the decision rule stays on the left, the other figure on the right), while the sliders scroll underneath, so a slider can be moved while its effect stays in view. Touch replaces hover: tap or drag on either figure, and a readout under it keeps the last reading (on the map, the three boxes under it also choose what the map colours). The docking is switched off in landscape (under 540 px tall). All of this is in the `@media (max-width: 720px)` block at the end of `assets/css/style.css`.
 
 ## Publish on GitHub Pages
 
