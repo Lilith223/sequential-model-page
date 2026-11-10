@@ -6,11 +6,12 @@
  */
 (function () {
   'use strict';
-  const { h, s, $, clear, sym, pct, f2, f3, slider, Tip, onResize, cssVar, onTheme, clamp } = UI;
+  const { h, s, $, clear, sym, pct, f2, f3, slider, segmented, Tip, onResize, cssVar, onTheme, clamp } = UI;
 
-  const st = { K: 0.3, e1: 0.45, e2: 0.15, r: 0.5, p: 0.6, cursor: null };
+  const st = { K: 0.3, e1: 0.45, e2: 0.15, r: 0.5, p: 0.6, cursor: null, z: null };
   const ctl = {};
-  let box1, svg1, box2, svg2, legendEl, textEl;
+  let box1, svg1, box2, svg2, legendEl, textEl, dock1, dock2, dockEl;
+  const chartH = (W) => (UI.isPhone() ? (W < 520 ? 215 : 250) : 360);     // shorter on phones, so the figure and its controls fit on one screen
 
   const label = (b, pol) => (b.kind === 'D' ? 'Dislike' : b.kind === 'L' ? 'Like' : pol.methods[b.choice].id === 'M' ? 'Check manually' : 'Check with automated fact-checking');
   const colorOf = (b, pol) => (b.kind === 'C' ? (pol.methods[b.choice].id === 'M' ? '--blue' : '--orange') : null);
@@ -22,7 +23,7 @@
 
   /* ------------------------------------------------------------------ chart 1: payoffs */
   function draw1() {
-    const W = Math.max(300, box1.clientWidth), H = 360;
+    const W = Math.max(240, box1.clientWidth), H = chartH(W);
     const m = { l: 46, r: 14, t: 14, b: 78 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
     const { MH, MA, pol } = models();
     const x = (v) => m.l + v * pw;
@@ -88,38 +89,46 @@
     // hover layer
     const cross = s('line', { y1: m.t, y2: m.t + ph, stroke: ink2, 'stroke-width': 1, opacity: 0, 'pointer-events': 'none' });
     const hit = s('rect', { x: m.l, y: m.t, width: pw, height: ph + sh + 20, fill: 'transparent' });
-    const showAt = (p, cx, cy) => {
+    // Reading at belief p: moves the cross-hair and fills the docked readout (phones); returns the spec for the tooltip.
+    const place = (p) => {
       p = clamp(p, 0, 1); st.cursor = p;
       cross.setAttribute('x1', x(p)); cross.setAttribute('x2', x(p)); cross.setAttribute('opacity', 0.55);
       const best = pol.basins.find((b) => p <= b.piHi + 1e-12 && p >= b.piLo - 1e-12) || segs[0];
-      Tip.show(cx, cy, {
+      const spec = {
         title: 'Belief π = ' + p.toFixed(2),
         rows: [
           { label: 'No check', value: f3(fV(p)), color: ink2, line: true },
-          { label: 'Manual check (net of cost)', value: f3(fH(p)), color: blue, line: true },
-          { label: 'Automated check', value: f3(fA(p)), color: orange, line: true },
+          { label: 'Manual check (net of cost)', short: 'Manual', value: f3(fH(p)), color: blue, line: true },
+          { label: 'Automated check', short: 'Auto', value: f3(fA(p)), color: orange, line: true },
         ],
         note: 'Best: ' + label(segs.find((b) => p >= b.piLo - 1e-12 && p <= b.piHi + 1e-12) || best, pol).toLowerCase(),
-      });
+      };
+      dock1.show(spec);
+      return spec;
     };
-    hit.addEventListener('pointermove', (ev) => { const r = svg1.getBoundingClientRect(); showAt((((ev.clientX - r.left) / r.width) * W - m.l) / pw, ev.clientX, ev.clientY); });
-    hit.addEventListener('pointerleave', () => { cross.setAttribute('opacity', 0); Tip.hide(); });
+    const beliefAt = (ev) => { const r = svg1.getBoundingClientRect(); return (((ev.clientX - r.left) / r.width) * W - m.l) / pw; };
+    // mouse: hover tooltip. touch/pen: tap or drag; the reading stays after the finger lifts.
+    hit.addEventListener('pointermove', (ev) => { const spec = place(beliefAt(ev)); if (ev.pointerType === 'mouse') Tip.show(ev.clientX, ev.clientY, spec); });
+    hit.addEventListener('pointerdown', (ev) => { if (ev.pointerType !== 'mouse') place(beliefAt(ev)); });
+    hit.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') { if (!UI.isPhone()) cross.setAttribute('opacity', 0); Tip.hide(); } });
     box1.onkeydown = (ev) => {
       if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
       ev.preventDefault();
       const p = clamp((st.cursor == null ? 0.5 : st.cursor) + (ev.key === 'ArrowRight' ? 0.01 : -0.01), 0, 1);
-      const r = svg1.getBoundingClientRect();
-      showAt(p, r.left + (x(p) / W) * r.width, r.top + r.height * 0.3);
+      const spec = place(p), r = svg1.getBoundingClientRect();
+      Tip.show(r.left + (x(p) / W) * r.width, r.top + r.height * 0.3, spec);
     };
-    box1.onblur = () => { cross.setAttribute('opacity', 0); Tip.hide(); };
+    box1.onblur = () => { if (!UI.isPhone()) cross.setAttribute('opacity', 0); Tip.hide(); };
     kids.push(cross, hit);
     kids.forEach((k) => svg1.appendChild(k));
+    // keep the reading when a slider moves (phones): the cross-hair stays and its numbers update
+    if (UI.isPhone() && st.cursor != null) place(st.cursor); else dock1.empty('Touch the chart to read values.');
   }
 
   /* ------------------------------------------------------------------ chart 2: shares by crowd belief */
   function draw2() {
-    const W = Math.max(300, box2.clientWidth), H = 360;
-    const m = { l: 46, r: 14, t: 14, b: 78 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+    const W = Math.max(240, box2.clientWidth), H = chartH(W);
+    const m = { l: 54, r: 14, t: 14, b: 78 }, pw = W - m.l - m.r, ph = H - m.t - m.b;      // l = 54: room for "100%" next to the axis title
     const { pol } = models();
     const chain = ECC.makeChain(pol, { r: st.r, p: st.p, q: 0.5, prior: ECC.priors.arcsine });
     const ZMAX = 3;
@@ -131,7 +140,7 @@
       kids.push(s('line', { class: 'grid-line', x1: m.l, x2: m.l + pw, y1: y(v), y2: y(v) }));
       kids.push(s('text', { class: 'tick-label', x: m.l - 8, y: y(v) + 4, 'text-anchor': 'end' }, pct(v)));
     });
-    kids.push(s('text', { class: 'axis-title', transform: `translate(12 ${m.t + ph / 2}) rotate(-90)`, 'text-anchor': 'middle' }, 'Share of agents'));
+    kids.push(s('text', { class: 'axis-title', transform: `translate(11 ${m.t + ph / 2}) rotate(-90)`, 'text-anchor': 'middle' }, 'Share of agents'));
 
     // stacked bands, bottom to top: Like, checks (by increasing posterior), Dislike
     const M = 160, zs = [];
@@ -169,21 +178,30 @@
     // hover
     const cross = s('line', { y1: m.t, y2: m.t + ph, stroke: cssVar('--ink'), 'stroke-width': 1, opacity: 0, 'pointer-events': 'none' });
     const hit = s('rect', { x: m.l, y: m.t, width: pw, height: ph, fill: 'transparent' });
-    hit.addEventListener('pointermove', (ev) => {
-      const r = svg2.getBoundingClientRect(), px = ((ev.clientX - r.left) / r.width) * W;
-      const z = clamp(((px - m.l) / pw) * 2 * ZMAX - ZMAX, -ZMAX, ZMAX);
+    // Reading at crowd belief z (log10 odds): moves the cross-hair, fills the docked readout (phones), returns the tooltip spec.
+    const short = (b) => (b.kind === 'D' ? 'Dislike' : b.kind === 'L' ? 'Like' : pol.methods[b.choice].id === 'M' ? 'Manual' : 'Auto');
+    const bandCol = (b) => (b.kind === 'C' ? cssVar(pol.methods[b.choice].id === 'M' ? '--blue' : '--orange') : b.kind === 'D' ? cssVar('--ink-2') : cssVar('--axis'));
+    const place = (z) => {
+      z = clamp(z, -ZMAX, ZMAX); st.z = z;
       cross.setAttribute('x1', x(z)); cross.setAttribute('x2', x(z)); cross.setAttribute('opacity', 0.55);
-      const ms = chain.masses(Math.pow(10, -z)), trs = [];
+      const ms = chain.masses(Math.pow(10, -z)), trs = [], all = [];
       order.forEach((k) => {
-        const b = pol.basins[k]; if (ms[k] < 0.0005) return;
-        trs.push({ label: label(b, pol), value: pct(ms[k], 1), color: b.kind === 'C' ? cssVar(pol.methods[b.choice].id === 'M' ? '--blue' : '--orange') : cssVar('--axis') });
+        const b = pol.basins[k];
+        if (rows.some((rw) => rw[k] > 1e-4)) all.push({ label: label(b, pol), short: short(b), value: pct(ms[k], 0), color: bandCol(b) });
+        if (ms[k] < 0.0005) return;
+        trs.push({ label: label(b, pol), value: pct(ms[k], 1), color: bandCol(b) });
       });
-      const rho = 1 / (1 + Math.pow(10, -z));
-      Tip.show(ev.clientX, ev.clientY, { title: 'Crowd believes it is fake: ' + pct(rho, rho > 0.99 || rho < 0.01 ? 1 : 0), rows: trs.reverse() });
-    });
-    hit.addEventListener('pointerleave', () => { cross.setAttribute('opacity', 0); Tip.hide(); });
+      const rho = 1 / (1 + Math.pow(10, -z)), title = 'Crowd believes it is fake: ' + pct(rho, rho > 0.99 || rho < 0.01 ? 1 : 0);
+      dock2.show({ title, rows: all });
+      return { title, rows: trs.reverse() };
+    };
+    const zAt = (ev) => { const r = svg2.getBoundingClientRect(), px = ((ev.clientX - r.left) / r.width) * W; return ((px - m.l) / pw) * 2 * ZMAX - ZMAX; };
+    hit.addEventListener('pointermove', (ev) => { const spec = place(zAt(ev)); if (ev.pointerType === 'mouse') Tip.show(ev.clientX, ev.clientY, spec); });
+    hit.addEventListener('pointerdown', (ev) => { if (ev.pointerType !== 'mouse') place(zAt(ev)); });
+    hit.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') { if (!UI.isPhone()) cross.setAttribute('opacity', 0); Tip.hide(); } });
     kids.push(cross, hit);
     kids.forEach((k) => svg2.appendChild(k));
+    if (UI.isPhone() && st.z != null) place(st.z); else dock2.empty('Touch the chart to read values.');
   }
 
   /* ------------------------------------------------------------------ text */
@@ -241,29 +259,45 @@
     box2 = h('div', { class: 'chart', role: 'img', 'aria-label': 'Share of agents who like, check or dislike as a function of the crowd’s belief' }, svg2 = s('svg'));
     legendEl = h('div', { class: 'legend', style: { marginTop: '6px' } });
     textEl = h('div', { class: 'readout', style: { marginTop: '12px' } });
+    // docked readouts: what a hover tooltip does on a desktop, for fingers (shown on phones only)
+    const ro1 = h('div', { class: 'ro', 'aria-live': 'polite' }), ro2 = h('div', { class: 'ro', 'aria-live': 'polite' });
+    dock1 = UI.readout(ro1); dock2 = UI.readout(ro2);
+    if (UI.isPhone()) { st.cursor = 0.5; st.z = 0; }          // start with a reading on show, so the interaction is visible
 
-    root.appendChild(h('div', { class: 'card pad' },
-      h('div', { class: 'controls', style: { gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' } },
-        h('div', { class: 'ctl-group' }, h('p', { class: 'ctl-title' }, 'Fact-checking'), ctl.K.el, ctl.e1.el, ctl.e2.el),
-        h('div', { class: 'ctl-group' }, h('p', { class: 'ctl-title' }, 'Article (right chart only)'), ctl.r.el, ctl.p.el,
-          h('p', { class: 'note', style: { margin: 0 } }, 'Prior beliefs follow a polarised Beta(½, ½) distribution.'))),
-      h('div', { class: 'toolbar', style: { marginTop: '4px' } }, h('span', { class: 'note', style: { fontWeight: 600 } }, 'Try:'), h('div', { class: 'chips' }, chips)),
-      h('div', { class: 'divider' }),
+    // phones show one chart at a time (tabs), docked above the controls; desktops show both side by side
+    const tabs = segmented({
+      ariaLabel: 'Choose the chart', value: '1',
+      options: [{ value: '1', label: '1 · Agent’s choice' }, { value: '2', label: '2 · The crowd' }],
+      onChange: (v) => { dockEl.setAttribute('data-pane', v); (v === '1' ? draw1 : draw2)(); },
+    });
+    dockEl = h('div', { class: 'dock', 'data-pane': '1' },
+      h('div', { class: 'dock-tabs phone-only' }, tabs.el),
       h('div', { class: 'two-col' },
-        h('div', null,
+        h('div', { class: 'pane pane1' },
           h('p', { class: 'chart-title' }, '1 · What does an agent do?'),
           h('p', { class: 'chart-sub' }, 'Expected payoff of each option, by the agent’s belief that the article is fake'),
-          box1, legendEl, textEl),
-        h('div', null,
+          box1, ro1, legendEl),
+        h('div', { class: 'pane pane2' },
           h('p', { class: 'chart-title' }, '2 · Who is left to check as the crowd gets convinced?'),
           h('p', { class: 'chart-sub' }, 'Share of arriving agents who like, check or dislike, by the crowd’s belief'),
-          box2,
+          box2, ro2,
           h('div', { class: 'legend', style: { marginTop: '6px' } },
             h('span', { class: 'k' }, h('span', { class: 'key-sw bg-blue' }), 'check manually'),
             h('span', { class: 'k' }, h('span', { class: 'key-sw bg-orange' }), 'check with automated fact-checking'),
             h('span', { class: 'k' }, h('span', { class: 'key-sw', style: { background: 'var(--ink-2)', opacity: 0.45 } }), 'dislike unchecked'),
-            h('span', { class: 'k' }, h('span', { class: 'key-sw', style: { background: 'var(--axis)', opacity: 0.6 } }), 'like unchecked')),
-          h('p', { class: 'note', style: { margin: '12px 0 0' } }, 'Where the coloured bands vanish, every agent follows the crowd and no new information enters: the cascade zones.'))),
+            h('span', { class: 'k' }, h('span', { class: 'key-sw', style: { background: 'var(--axis)', opacity: 0.6 } }), 'like unchecked')))));
+
+    root.appendChild(h('div', { class: 'card pad dock-card' },
+      h('div', { class: 'controls', style: { gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' } },
+        h('div', { class: 'ctl-group' }, h('p', { class: 'ctl-title' }, 'Fact-checking'), ctl.K.el, ctl.e1.el, ctl.e2.el),
+        h('div', { class: 'ctl-group' }, h('p', { class: 'ctl-title' }, 'Article (chart 2 only)'), ctl.r.el, ctl.p.el,
+          h('p', { class: 'note', style: { margin: 0 } }, 'Prior beliefs follow a polarised Beta(½, ½) distribution.'))),
+      h('div', { class: 'toolbar', style: { marginTop: '4px' } }, h('span', { class: 'note', style: { fontWeight: 600 } }, 'Try:'), h('div', { class: 'chips' }, chips)),
+      h('div', { class: 'divider' }),
+      dockEl,
+      h('div', { class: 'two-col dock-notes' },
+        textEl,
+        h('p', { class: 'note', style: { margin: '12px 0 0' } }, 'Where the coloured bands vanish, every agent follows the crowd and no new information enters: the cascade zones.')),
     ));
     root.appendChild(h('p', { class: 'takeaway reveal' }, h('b', null, 'Why it matters. '), 'A free but noisy tool pays off for agents who are already fairly sure (belief near 0 or 1), so more of them check. That widens the band of beliefs in which the crowd keeps learning, and also hands the tool’s errors to the crowd.'));
     onResize(box1, draw1); onResize(box2, draw2);

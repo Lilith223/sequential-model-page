@@ -390,3 +390,92 @@ details.fold > .fold-body { padding: 4px 18px 16px; }
 
 /* grid items may shrink below their content (long formulas, SVG charts) */
 .card, .result, .world, .pop-col, .ctl-group, .box { min-width: 0; }
+
+/* ==========================================================================
+   Phones (the page is opened from a QR code at a poster session).
+   - the figure stays in view (docked under the top bar) while the controls scroll underneath it
+   - touch targets are finger-sized and the hover tooltip is replaced by a readout under the chart
+   Everything here is inside the 720px query, so the desktop layout above is unchanged.
+   ========================================================================== */
+html { -webkit-tap-highlight-color: transparent; }
+button, .chip, .seg button, .btn, .nav a, summary { touch-action: manipulation; }
+.heat-frame > svg { touch-action: pan-y pinch-zoom; }       /* vertical swipes over the map still scroll the page */
+.phone-only, .ro, .cell-mini, .cb-short { display: none; }
+
+/* docked readout under a chart (replaces the floating tooltip) */
+.ro { margin-top: 4px; min-height: 40px; font-size: 12px; line-height: 1.4; color: var(--ink-2); }
+.ro .ro-t { font-weight: 600; font-size: 13px; color: var(--ink); }
+.ro .ro-i { display: inline-flex; align-items: center; gap: 3px; margin: 1px 7px 0 0; white-space: nowrap; }
+.ro .ro-i b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ro .ln { width: 10px; height: 0; border-top: 2px solid; display: inline-block; flex: none; }
+
+/* compact reading of the selected map cell */
+.cell-mini { grid-template-columns: 70px repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; align-items: stretch; }
+.cell-mini > div { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 5px 8px; min-width: 0; }
+.cell-mini > .on { border-color: var(--ink); background: var(--surface); }
+.cell-mini > .pos { background: transparent; border: 0; padding: 2px 0; font-size: 12.5px; line-height: 1.4; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cell-mini .l { display: block; font-size: 11.5px; color: var(--ink-2); line-height: 1.25; }
+.cell-mini b { font: 600 16px/1.3 var(--sans); font-variant-numeric: tabular-nums; }
+.cell-mini small { display: block; font-size: 11px; color: var(--ink-2); }
+
+@media (max-width: 720px) {
+  .phone-only { display: block; }
+  .desktop-only { display: none !important; }
+  .ro { display: block; }
+  .cell-mini { display: grid; }
+  .cb-short { display: inline; } .cb-long { display: none; }
+  html { scroll-padding-top: 12px; }
+  .topbar { position: static; }               /* scrolls away: the pinned figure needs the room more than a two-link nav does */
+  .lede { font-size: 17px; }
+
+  /* finger-sized controls */
+  .icon-btn { width: 42px; height: 42px; }
+  .nav a { padding: 11px 13px; font-size: 14.5px; }
+  .chip { padding: 11px 14px; font-size: 14px; }
+  .seg button { padding: 11px 14px; font-size: 14px; }
+  select.sel { font-size: 16px; padding: 11px 12px; }          /* 16px stops iOS zooming the page when the menu opens */
+  .btn.sm { padding: 12px 14px; }
+  details.fold > summary { padding: 15px 16px; }
+  #theory-toggle { width: 22px; height: 22px; flex: none; }
+  .sl { margin-bottom: 8px; }
+  .sl-top, .sl-val { font-size: 15px; }
+  input[type="range"] { height: 42px; margin-top: 0; }
+  input[type="range"]::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -12px; }
+  input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; }
+  .chart .tick-label { font-size: 12px; }
+
+  /* the docked figure: tabs (Decision) or view switch (Map), the figure, and a readout */
+  .dock { margin: 0 -16px; padding: 8px 12px 6px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .dock-tabs { margin-bottom: 6px; }
+  .dock-tabs .seg { display: flex; width: 100%; }
+  .dock-tabs .seg button { flex: 1; padding: 9px 6px; font-size: 13.5px; }
+
+  /* Decision: one chart at a time, controls underneath */
+  .dock-card { display: flex; flex-direction: column; }
+  .dock-card > .dock { order: -1; }
+  .dock-card > .divider { display: none; }
+  .dock[data-pane="1"] .pane2, .dock[data-pane="2"] .pane1 { display: none; }
+  .dock .two-col { display: block; }
+  .dock .chart-title, .dock .chart-sub, .dock .legend { display: none; }      /* the readout carries the colour key */
+  .dock-notes { gap: 0; }
+
+  /* Map: title, then the docked map, then presets and sliders */
+  .map-layout { display: flex; flex-direction: column; gap: 14px; }
+  .map-right { display: contents; }
+  .map-right > .chart-title { order: 1; margin: 0; }
+  .map-right > .chart-sub { order: 2; margin: -10px 0 0; }
+  .map-right > .dock { order: 3; }
+  .map-layout > .map-aside { order: 4; }
+  .map-right > .map-note { order: 5; margin: 0; }
+  .map-aside { display: flex; flex-direction: column; gap: 18px; }
+  .map-aside .ctl-title { margin-top: 0 !important; }
+  .map-aside .g-theory > label { margin-top: 0 !important; }
+  .map-aside > .g-presets { order: 0; } .map-aside > .g-sliders { order: 1; } .map-aside > .g-prior { order: 2; } .map-aside > .g-theory { order: 3; }
+  .heat-plot { aspect-ratio: 1.9 / 1; }
+  .dock .colorbar { margin: 8px 0 4px; }
+  .dock .progress { margin-top: 8px; }
+}
+/* only dock (stick) the figure when the screen is tall enough to leave room for the controls */
+@media (max-width: 720px) and (min-height: 540px) {
+  .dock { position: sticky; top: 0; z-index: 20; box-shadow: 0 10px 14px -12px rgba(0, 0, 0, 0.35); }
+}

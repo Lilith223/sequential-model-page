@@ -13,7 +13,7 @@
 
   const st = { K: 0.3, e1: 0.3, e2: 0.1, view: 'dW', prior: 'arcsine', theory: true, sel: { i: 40, j: 4 } };
   const ctl = {};
-  let worker = null, jobId = 0, lam = null, runs = 0, done = false, canvas, frame, plot, svg, ctx, progress, progressTxt, info = {}, regimeEl, legendEl, tableEl, colorbar, cbLabels, loadBtn;
+  let worker = null, jobId = 0, lam = null, runs = 0, done = false, canvas, frame, plot, svg, ctx, progress, progressTxt, info = {}, regimeEl, legendEl, tableEl, colorbar, cbLabels, loadBtn, mini = {};
 
   const rOf = (i) => (i + 0.5) / NR;
   const pOf = (j) => P_MIN + ((P_MAX - P_MIN) * (j + 0.5)) / NP;
@@ -52,8 +52,9 @@
     const stops = [];
     for (let k = 0; k <= 10; k++) { const v = (k / 5 - 1) * vmax, c = colorOf(v, vmax); stops.push(`rgb(${c[0]},${c[1]},${c[2]}) ${(k * 10)}%`); }
     colorbar.style.background = `linear-gradient(to right, ${stops.join(',')})`;
-    cbLabels[0].textContent = '−' + vmax.toFixed(2) + '  manual only is better';
-    cbLabels[1].textContent = 'adding automated fact-checking is better  +' + vmax.toFixed(2);
+    const vm = vmax.toFixed(2);
+    clear(cbLabels[0]); cbLabels[0].append('−' + vm, h('span', { class: 'cb-long' }, '  manual only is better'), h('span', { class: 'cb-short' }, '  manual better'));
+    clear(cbLabels[1]); cbLabels[1].append(h('span', { class: 'cb-long' }, 'adding automated fact-checking is better  '), h('span', { class: 'cb-short' }, 'automated better  '), '+' + vm);
   }
 
   /* ------------------------------------------------------------------ theory overlay */
@@ -134,27 +135,46 @@
         }
         runsAt.forEach((run) => {
           if (!run.sg || run.b - run.a < 0.05) return;
-          const txt = run.sg === '-' ? '−' : run.sg, cx = X((run.a + run.b) / 2), cy = Y(p), wd = txt.length > 1 ? 30 : 24;
-          kids.push(s('rect', { x: cx - wd / 2, y: cy - 11, width: wd, height: 22, rx: 11, fill: surface, stroke: cssVar('--axis'), opacity: 0.96 }));
-          kids.push(s('text', { x: cx, y: cy + 5, 'text-anchor': 'middle', style: 'font-size:15px;font-weight:700;fill:var(--ink)' }, txt));
+          const sm = g.w < 400;       // smaller pills on phones, so they do not swallow the map
+          const txt = run.sg === '-' ? '−' : run.sg, cx = X((run.a + run.b) / 2), cy = Y(p), wd = txt.length > 1 ? (sm ? 25 : 30) : (sm ? 20 : 24), hh = sm ? 18 : 22;
+          kids.push(s('rect', { x: cx - wd / 2, y: cy - hh / 2, width: wd, height: hh, rx: hh / 2, fill: surface, stroke: cssVar('--axis'), opacity: 0.96 }));
+          kids.push(s('text', { x: cx, y: cy + (sm ? 4.5 : 5), 'text-anchor': 'middle', style: 'font-size:' + (sm ? 13 : 15) + 'px;font-weight:700;fill:var(--ink)' }, txt));
         });
       });
     }
 
     // selected and hovered cells
     const cellRect = (i, j, stroke, w) => s('rect', { x: X(i / NR), y: Y(P_MIN + ((P_MAX - P_MIN) * (j + 1)) / NP), width: g.w / NR, height: g.h / NP, fill: 'none', stroke, 'stroke-width': w, 'pointer-events': 'none' });
-    if (st.sel) { kids.push(cellRect(st.sel.i, st.sel.j, surface, 4)); kids.push(cellRect(st.sel.i, st.sel.j, ink, 2)); }
+    const selRects = st.sel ? [cellRect(st.sel.i, st.sel.j, surface, 4), cellRect(st.sel.i, st.sel.j, ink, 2)] : [];
+    selRects.forEach((r) => kids.push(r));
+    ov = { X, Y, sel: selRects, cw: g.w / NR, ch: g.h / NP, grow: g.w < 400 ? 4 : 0 };       // phones: a cell is ~3 px wide, so the marker is drawn larger
+    placeSel();
     const hov = s('rect', { width: g.w / NR, height: g.h / NP, fill: 'none', stroke: ink, 'stroke-width': 1.5, opacity: 0, 'pointer-events': 'none' });
     const hit = s('rect', { x: g.x0, y: g.y0, width: g.w, height: g.h, fill: 'transparent', style: 'cursor:crosshair' });
     const at = (ev) => { const r = svg.getBoundingClientRect(), px = ((ev.clientX - r.left) / r.width) * g.W, py = ((ev.clientY - r.top) / r.height) * g.H; return cellOf((px - g.x0) / g.w, P_MAX - ((py - g.y0) / g.h) * (P_MAX - P_MIN)); };
     hit.addEventListener('pointermove', (ev) => {
-      const c = at(ev); hov.setAttribute('x', X(c.i / NR)); hov.setAttribute('y', Y(P_MIN + ((P_MAX - P_MIN) * (c.j + 1)) / NP)); hov.setAttribute('opacity', 1);
-      Tip.show(ev.clientX, ev.clientY, tipSpec(c.i, c.j));
+      const c = at(ev);
+      if (ev.pointerType === 'mouse') {
+        hov.setAttribute('x', X(c.i / NR)); hov.setAttribute('y', Y(P_MIN + ((P_MAX - P_MIN) * (c.j + 1)) / NP)); hov.setAttribute('opacity', 1);
+        Tip.show(ev.clientX, ev.clientY, tipSpec(c.i, c.j));
+      } else if (ev.buttons) select(c);       // finger or pen: drag along the map to move the selection
     });
-    hit.addEventListener('pointerleave', () => { hov.setAttribute('opacity', 0); Tip.hide(); });
-    hit.addEventListener('click', (ev) => { st.sel = at(ev); drawOverlay(); updateInfo(); });
+    hit.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') { hov.setAttribute('opacity', 0); Tip.hide(); } });
+    hit.addEventListener('click', (ev) => select(at(ev)));      // a tap is a click
     kids.push(hov, hit);
     kids.forEach((k) => svg.appendChild(k));
+  }
+
+  /* The selection marker is moved, not redrawn: redrawing the overlay mid-drag would replace the element the finger is on. */
+  let ov = null;
+  function placeSel() {
+    if (!ov || !st.sel) return;
+    const gr = ov.grow, x = ov.X(st.sel.i / NR) - gr, y = ov.Y(P_MIN + ((P_MAX - P_MIN) * (st.sel.j + 1)) / NP) - gr;
+    ov.sel.forEach((r) => { r.setAttribute('x', x); r.setAttribute('y', y); r.setAttribute('width', ov.cw + 2 * gr); r.setAttribute('height', ov.ch + 2 * gr); r.setAttribute('rx', gr ? 4 : 0); });
+  }
+  function select(c) {
+    if (st.sel && st.sel.i === c.i && st.sel.j === c.j) return;
+    st.sel = c; placeSel(); updateInfo();
   }
 
   function tipSpec(i, j) {
@@ -166,7 +186,16 @@
   }
 
   /* ------------------------------------------------------------------ info boxes and tables */
+  /* compact reading of the selected cell, docked under the map on phones */
+  function updateMini() {
+    const { i, j } = st.sel, d = delta(i, j);
+    const mv = (v) => (v > 0.0005 ? '+' : v < -0.0005 ? '−' : '±') + Math.abs(v * 100).toFixed(1);
+    mini.r.textContent = 'r = ' + rOf(i).toFixed(2); mini.p.textContent = 'p = ' + pOf(j).toFixed(2);
+    [mini.T, mini.F, mini.W].forEach((b) => { b.v.textContent = d ? mv(d[b.key]) : '…'; b.el.className = b.key === st.view ? 'on' : ''; });
+  }
+
   function updateInfo() {
+    updateMini();
     const { i, j } = st.sel, r = rOf(i), p = pOf(j), d = delta(i, j), cs = ECC.certified(st.K, st.e1, st.e2, r, p);
     const fmt = (v) => (v > 0.0005 ? '+' : v < -0.0005 ? '−' : '±') + Math.abs(v * 100).toFixed(1) + ' pts';
     info.title.textContent = 'Article with r = ' + r.toFixed(2) + ', p = ' + p.toFixed(2);
@@ -251,16 +280,19 @@
     ctl.K = slider({ label: ['Manual cost ', sym('K', 'H')], min: 0.05, max: 0.45, step: 0.01, value: st.K, format: f2, onInput: (v) => { st.K = v; redo(); } });
     ctl.e1 = slider({ label: ['Automated false-alarm rate ', sym('e', '1')], min: 0.06, max: 0.55, step: 0.01, value: st.e1, format: f2, onInput: (v) => { st.e1 = v; if (st.e2 >= v) { st.e2 = Math.max(0.02, v - 0.01); ctl.e2.set(st.e2); } redo(); } });
     ctl.e2 = slider({ label: ['Automated miss rate ', sym('e', '2')], min: 0.02, max: 0.40, step: 0.01, value: st.e2, format: f2, onInput: (v) => { st.e2 = v; if (st.e1 <= v) { st.e1 = Math.min(0.55, v + 0.01); ctl.e1.set(st.e1); } redo(); } });
-    ctl.view = segmented({ ariaLabel: 'What to colour', options: [{ value: 'dW', label: 'Average' }, { value: 'dT', label: 'Truthful' }, { value: 'dF', label: 'Fake' }], value: st.view, onChange: (v) => { st.view = v; drawOverlay(); paintHeat(); } });
+    // two switches for the same thing: one in the sidebar (desktop), one docked above the map (phones)
+    const setView = (v) => { st.view = v; ctl.view.set(v); ctl.view2.set(v); drawOverlay(); paintHeat(); updateMini(); };
+    ctl.view = segmented({ ariaLabel: 'What to colour', options: [{ value: 'dW', label: 'Average' }, { value: 'dT', label: 'Truthful' }, { value: 'dF', label: 'Fake' }], value: st.view, onChange: setView });
+    ctl.view2 = segmented({ ariaLabel: 'What to colour', options: [{ value: 'dW', label: 'Average' }, { value: 'dT', label: 'If truthful' }, { value: 'dF', label: 'If fake' }], value: st.view, onChange: setView });
     const prior = h('select', { class: 'sel', 'aria-label': 'Distribution of prior beliefs', onchange: (ev) => { st.prior = ev.target.value; request(); } },
       Object.values(ECC.priors).map((p) => h('option', { value: p.id }, p.label)));
     const theory = h('input', { type: 'checkbox', checked: true, id: 'theory-toggle', onchange: (ev) => { st.theory = ev.target.checked; drawOverlay(); } });
     regimeEl = h('p', { class: 'readout', style: { margin: '8px 0 0' } });
-    progressTxt = h('p', { class: 'note', style: { margin: '6px 0 0' }, role: 'status' });
+    progressTxt = h('p', { class: 'note map-note', style: { margin: '6px 0 0' }, role: 'status' });
     progress = h('div', { class: 'progress' }, h('i'));
     colorbar = h('div', { class: 'colorbar' });
     cbLabels = [h('span'), h('span')];
-    legendEl = h('p', { class: 'note', style: { margin: '10px 0 0' } },
+    legendEl = h('p', { class: 'note map-note', style: { margin: '10px 0 0' } },
       'Curves: ', sym('r', 'D'), ', ', sym('r', 'L'), ' (the crowd cascades at once, whatever the article) and ', h('i', { class: 'sym' }, 'r̂'), h('sub', null, 'D'), ', ', h('i', { class: 'sym' }, 'r̂'), h('sub', null, 'L'), ' (the thresholds for a perfect checker); (H) manual, (A) automated. Pills mark where the paper certifies the sign of the change. Click a cell to inspect it.');
     const chips = PRESETS.map((pr) => h('button', { type: 'button', class: 'chip', onclick: () => setParams({ K: pr.K, e1: pr.e1, e2: pr.e2 }) }, pr.label));
 
@@ -277,20 +309,31 @@
     loadBtn = document.getElementById('sim-root') ? h('button', { type: 'button', class: 'btn sm', disabled: true, onclick: replayInSim }, 'Replay this article in the simulator ↑') : null;
     tableEl = h('div', { class: 'scroll-x' });
 
+    // compact reading of the selected cell (phones; the full boxes are further down)
+    const mbox = (key, name) => { const v = h('b'); return { key, v, el: h('div', null, h('span', { class: 'l' }, name), v) }; };
+    mini.r = h('div'); mini.p = h('div');
+    mini.T = mbox('dT', 'Truthful'); mini.F = mbox('dF', 'Fake'); mini.W = mbox('dW', 'Average');
+    mini.el = h('div', { class: 'cell-mini', 'aria-live': 'polite' }, h('div', { class: 'pos' }, mini.r, mini.p, h('small', null, 'change, pts')), mini.T.el, mini.F.el, mini.W.el);
+
     root.appendChild(h('div', { class: 'card pad' },
       h('div', { class: 'map-layout' },
-        h('aside', null,
-          h('p', { class: 'ctl-title' }, 'Fact-checking'),
-          ctl.K.el, ctl.e1.el, ctl.e2.el, regimeEl,
-          h('div', { class: 'divider', style: { margin: '14px 0' } }),
-          h('p', { class: 'ctl-title' }, 'Colour shows'), ctl.view.el,
-          h('p', { class: 'ctl-title', style: { marginTop: '16px' } }, 'Prior beliefs'), prior,
-          h('label', { style: { display: 'flex', gap: '8px', alignItems: 'center', marginTop: '16px', fontSize: '14px', cursor: 'pointer' } }, theory, 'Show thresholds and certified signs'),
-          h('p', { class: 'ctl-title', style: { marginTop: '16px' } }, 'Presets'), h('div', { class: 'chips' }, chips)),
-        h('div', null,
+        h('aside', { class: 'map-aside' },
+          h('div', { class: 'g-sliders' },
+            h('p', { class: 'ctl-title' }, 'Fact-checking'),
+            ctl.K.el, ctl.e1.el, ctl.e2.el, regimeEl,
+            h('div', { class: 'divider', style: { margin: '14px 0' } })),
+          h('div', { class: 'g-view desktop-only' }, h('p', { class: 'ctl-title' }, 'Colour shows'), ctl.view.el),
+          h('div', { class: 'g-prior' }, h('p', { class: 'ctl-title', style: { marginTop: '16px' } }, 'Prior beliefs'), prior),
+          h('div', { class: 'g-theory' }, h('label', { style: { display: 'flex', gap: '8px', alignItems: 'center', marginTop: '16px', fontSize: '14px', cursor: 'pointer' } }, theory, 'Show thresholds and certified signs')),
+          h('div', { class: 'g-presets' }, h('p', { class: 'ctl-title', style: { marginTop: '16px' } }, 'Presets'), h('div', { class: 'chips' }, chips))),
+        h('div', { class: 'map-right' },
           h('p', { class: 'chart-title' }, 'Change in the probability of a correct cascade when automated fact-checking is added'),
           h('p', { class: 'chart-sub' }, 'ΔW = W({manual, automated}) − W({manual}), by article'),
-          frame, colorbar, h('div', { class: 'colorbar-labels' }, cbLabels), progress, progressTxt, legendEl)),
+          // on phones this block is docked under the top bar while the controls scroll underneath it
+          h('div', { class: 'dock' },
+            h('div', { class: 'dock-tabs phone-only' }, ctl.view2.el),
+            frame, colorbar, h('div', { class: 'colorbar-labels' }, cbLabels), mini.el, progress),
+          progressTxt, legendEl)),
       h('div', { class: 'divider' }),
       info.title,
       h('div', { class: 'cell-info' }, boxes),
@@ -309,8 +352,7 @@
     const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[ev.key];
     if (!d) return;
     ev.preventDefault();
-    st.sel = { i: clamp(st.sel.i + d[0], 0, NR - 1), j: clamp(st.sel.j + d[1], 0, NP - 1) };
-    drawOverlay(); updateInfo();
+    select({ i: clamp(st.sel.i + d[0], 0, NR - 1), j: clamp(st.sel.j + d[1], 0, NP - 1) });
   }
 
   function init() { if ($('#map-root')) build(); }

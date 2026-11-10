@@ -96,6 +96,30 @@
     hide() { if (tipEl) tipEl.classList.remove('on'); },
   };
 
+  /**
+   * A readout docked under a chart. Phones have no hover, so the floating tooltip is replaced by this line,
+   * which keeps showing the last reading after the finger lifts and updates when a slider moves.
+   * spec: same as Tip.show; rows may carry a shorter `short` label.
+   */
+  function readout(el) {
+    return {
+      show(spec) {
+        clear(el);
+        el.appendChild(h('div', { class: 'ro-t' }, spec.title + (spec.note ? ' · ' + spec.note : '')));
+        const items = h('div', { class: 'ro-r' });
+        (spec.rows || []).forEach((r) => items.appendChild(h('span', { class: 'ro-i' },
+          r.color ? h('span', { class: r.line ? 'ln' : 'key-dot', style: r.line ? { borderColor: r.color } : { background: r.color } }) : null,
+          r.short || r.label, ' ', h('b', null, r.value == null ? '' : r.value))));
+        el.appendChild(items);
+      },
+      empty(msg) { clear(el); el.appendChild(h('div', { class: 'ro-t' }, msg)); },
+    };
+  }
+
+  /** True on phone-width screens (matches the CSS breakpoint where the figure is docked). */
+  const phoneMQ = window.matchMedia('(max-width: 720px)');
+  const isPhone = () => phoneMQ.matches;
+
   /* ---------------------------------------------------------------- controls */
   /**
    * Range slider with a live value. opts: {label (string|nodes), min, max, step, value, format, hint, onInput}
@@ -161,6 +185,6 @@
 
   root.UI = {
     h, s, $, $$, clear, sym, pct, f2, f3, signed, clamp, lerp, cssVar, isDark, onTheme, setTheme, initTheme,
-    Tip, slider, segmented, onResize, onceVisible, rafThrottle, debounce, LOGIT_TICKS, zOfEll, SVG_NS,
+    Tip, readout, isPhone, slider, segmented, onResize, onceVisible, rafThrottle, debounce, LOGIT_TICKS, zOfEll, SVG_NS,
   };
 })(window);
